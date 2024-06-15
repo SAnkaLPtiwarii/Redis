@@ -10,8 +10,15 @@ const server = net.createServer((connection) => {
     connection.on('data', (data) => {
         console.log("Received data:", data.toString());
         // Respond with +PONG\r\n for each received data (each PING)
-        connection.write('+PONG\r\n');
+        const commands = Buffer.from(data).toString().split("\r\n");
+        // *2\r\n $5 \r\n ECHO \r\n $3 \r\n hey \r\n
+        if (commands[2] == "ECHO") {
+            const str = commands[4];
+            const l = str.length;
+            return connection.write("$" + l + "\r\n" + str + "\r\n");
+        }
     });
+    connection.write('+PONG\r\n');
 
     // Handle client disconnection
     connection.on('end', () => {
