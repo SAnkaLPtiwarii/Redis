@@ -11,11 +11,11 @@ const server = net.createServer((connection) => {
         console.log("Received data:", data.toString());
         // Respond with +PONG\r\n for each received data (each PING)
         const commands = data.toString().split("\r\n");
-        // *2\r\n $5 \r\n ECHO \r\n $3 \r\n hey \r\n
-        if (commands.length >= 6 && commands[2] == "ECHO") {
-            const str = commands[4];
-            const l = str.length;
-            connection.write("$9\r\nraspberry\r\n");
+        // *2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n
+        if (commands.length >= 3 && commands[2] === "ECHO") {
+            const str = commands[2]; // This is the argument for ECHO
+            const l = str.length; // Length of the argument
+            connection.write(`$${l}\r\n${str}\r\n`); // Respond with the argument
         } else {
             connection.write("-ERR unknown command\r\n");
         }
