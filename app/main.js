@@ -6,7 +6,8 @@ console.log("Logs from your program will appear here!");
 // Uncomment this block to pass the first stage
 const server = net.createServer((connection) => {
     // Handle connection
-    connection.write(`+PONG\r\n`);
+    connection.write(`+PONG\n\r`);
+    connection.write(`+PONG\n\r`);
 });
 
 server.listen(6379, "127.0.0.1");
