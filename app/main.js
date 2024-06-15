@@ -39,8 +39,6 @@ const server = net.createServer((connection) => {
                     const value = store.get(key);
                     return connection.write(`$${value.length}\r\n${value}\r\n`);
                 }
-            } else {
-                return connection.write("$-1\r\n");
             }
         }
 
