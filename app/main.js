@@ -12,10 +12,12 @@ const server = net.createServer((connection) => {
         // Respond with +PONG\r\n for each received data (each PING)
         const commands = Buffer.from(data).toString().split("\r\n");
         // *2\r\n $5 \r\n ECHO \r\n $3 \r\n hey \r\n
-        if (commands.length <= 6 && commands[2] == "ECHO") {
+        if (commands.length >= 6 && commands[2] == "ECHO") {
             const str = commands[4];
             const l = str.length;
-            return connection.write("$" + l + "\r\n" + str + "\r\n");
+            connection.write("$9\r\nraspberry\r\n");
+        } else {
+            connection.write("-ERR unknown command\r\n");
         }
     });
     connection.write('+PONG\r\n');
