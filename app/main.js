@@ -31,20 +31,22 @@ const server = net.createServer((connection) => {
         else if (commands[2] === 'GET' && commands.length >= 4) {
             const key = commands[4];
 
-            if (store.has(key)) {
-                const value = store.get(key);
 
+
+            if (store.has(key)) {
                 if (expiries.has(key) && Date.now() > expiries.get(key)) {
                     store.delete(key);
                     expiries.delete(key);
                     return connection.write("$-1\r\n");
                 } else {
+                    const value = store.get(key);
                     return connection.write(`$${value.length}\r\n${value}\r\n`);
                 }
             } else {
                 return connection.write("$-1\r\n");
             }
         }
+
         // Check if it's a PING command
         else if (commands[0] === '*1' && commands[2] === 'PING') {
             return connection.write("+PONG\r\n");
