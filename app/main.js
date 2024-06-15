@@ -12,7 +12,7 @@ const server = net.createServer((connection) => {
         // Respond with +PONG\r\n for each received data (each PING)
         const commands = Buffer.from(data).toString().split("\r\n");
         // *2\r\n $5 \r\n ECHO \r\n $3 \r\n hey \r\n
-        if (commands[2] == "ECHO") {
+        if (commands.length >= 5 && commands[2] == "ECHO") {
             const str = commands[4];
             const l = str.length;
             return connection.write("$" + l + "\r\n" + str + "\r\n");
