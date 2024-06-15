@@ -32,28 +32,29 @@ const server = net.createServer((connection) => {
     });
 
     // Handle data received from the client
-    // connection.on("data", (data) => {
-    //     const commands = Buffer.from(data).toString().split("\r\n");
+    connection.on("data", (data) => {
+        const commands = Buffer.from(data).toString().split("\r\n");
 
-    // Check if it's an ECHO command
-    if (commands[0] === '*2' && commands[2] === 'ECHO') {
-        const str = commands[4];
-        const l = str.length;
-        return connection.write(`$${l}\r\n${str}\r\n`);
-    }
-    // Check if it's a PING command
-    if (commands[0] === '*1' && commands[2] === 'PING') {
-        return connection.write("+PONG\r\n");
-    }
-    // If the command is not recognized
-    else {
-        return connection.write("-ERR unknown command\r\n");
-    }
+        // Check if it's an ECHO command
+        if (commands[0] === '*2' && commands[2] === 'ECHO') {
+            const str = commands[4];
+            const l = str.length;
+            return connection.write(`$${l}\r\n${str}\r\n`);
+        }
+        // Check if it's a PING command
+        if (commands[0] === '*1' && commands[2] === 'PING') {
+            return connection.write("+PONG\r\n");
+        }
+        // If the command is not recognized
+        else {
+            return connection.write("-ERR unknown command\r\n");
+        }
 
-});
+    });
 
 
-// Start the server on port 6379
-server.listen(6379, "127.0.0.1", () => {
-    console.log("Server started on port 6379");
+    // Start the server on port 6379
+    server.listen(6379, "127.0.0.1", () => {
+        console.log("Server started on port 6379");
+    });
 });
