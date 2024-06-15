@@ -20,7 +20,7 @@ const server = net.createServer((connection) => {
                 setTimeout(() => {
                     store.delete(key);
                     expiries.delete(key);
-                }, expiry);
+                }, 100);
 
                 return connection.write("+OK\r\n");
             } else {
@@ -30,9 +30,6 @@ const server = net.createServer((connection) => {
         }
         else if (commands[2] === 'GET' && commands.length >= 4) {
             const key = commands[4];
-
-
-
             if (store.has(key)) {
                 if (expiries.has(key) && Date.now() > expiries.get(key)) {
                     store.delete(key);
