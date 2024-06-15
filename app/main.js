@@ -1,6 +1,7 @@
 const net = require("net");
 
 const store = new Map();
+const expiries = new Map();
 
 
 const server = net.createServer((connection) => {
