@@ -3,11 +3,23 @@ const net = require("net");
 // You can use print statements as follows for debugging, they'll be visible when running tests.
 console.log("Logs from your program will appear here!");
 
-// Uncomment this block to pass the first stage
 const server = net.createServer((connection) => {
-    // Handle connection
-    connection.write(`+PONG\r\n`);
-    connection.write(`+PONG\r\n`);
+    console.log("New client connected");
+
+    // Handle data received from the client
+    connection.on('data', (data) => {
+        console.log("Received data:", data.toString());
+        // Respond with +PONG\r\n for each received data (each PING)
+        connection.write('+PONG\r\n');
+    });
+
+    // Handle client disconnection
+    connection.on('end', () => {
+        console.log("Client disconnected");
+    });
 });
 
-server.listen(6379, "127.0.0.1");
+// Start the server on port 6379
+server.listen(6379, "127.0.0.1", () => {
+    console.log("Server started on port 6379");
+});
