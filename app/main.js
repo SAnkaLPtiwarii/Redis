@@ -7,24 +7,23 @@ const server = net.createServer((connection) => {
     console.log("New client connected");
 
     // Handle data received from the client
-    connection.on('data', (data) => {
-        console.log("Received data:", data.toString());
-        // Respond with +PONG\r\n for each received data (each PING)
-        const commands = data.toString().split("\r\n");
-        // *2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n
-        if (commands.length >= 3 && commands[2] === "ECHO") {
-            const str = commands[2]; // This is the argument for ECHO
-            const l = str.length; // Length of the argument
-            connection.write(`$${l}\r\n${str}\r\n`); // Respond with the argument
-        } else {
-            connection.write("-ERR unknown command\r\n");
-        }
-    });
-    connection.write('+PONG\r\n');
+    connection.on("data", (data) => {
+        const commands = Buffer.from(data).toString().split("\r\n");
 
-    // Handle client disconnection
-    connection.on('end', () => {
-        console.log("Client disconnected");
+        // Check if it's an ECHO command
+        if (commands[0] === '*2' && commands[2] === 'ECHO') {
+            const str = commands[4];
+            const l = str.length;
+            return connection.write(`$${l}\r\n${str}\r\n`);
+        }
+        // Check if it's a PING command
+        else if (commands[0] === '*1' && commands[2] === 'PING') {
+            return connection.write("+PONG\r\n");
+        }
+        // If the command is not recognized
+        else {
+            return connection.write("-ERR unknown command\r\n");
+        }
     });
 });
 
