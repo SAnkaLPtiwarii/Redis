@@ -7,6 +7,20 @@ const server = net.createServer((connection) => {
     connection.on("data", (data) => {
         const commands = Buffer.from(data).toString().split("\r\n");
 
+
+        if (commands[0] === '*5' && commands[2] === 'SET' && commands[6] === 'PX') {
+            const key = commands[4];
+            const value = commands[8];
+            const expiry = parseInt(commands[10]); // Parse the expiry time
+            store.set(key, value);
+            expiries.set(key, Date.now() + expiry); // Set the expiry time
+            setTimeout(() => {
+                store.delete(key); // Remove the key from the store after expiry
+                expiries.delete(key); // Remove the expiry time
+            }, expiry);
+            return connection.write("+OK\r\n");
+        }
+
         // Check if it's a SET command
         if (commands[0] === '*3' && commands[2] === 'SET') {
             const key = commands[4];

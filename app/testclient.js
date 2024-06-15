@@ -15,12 +15,12 @@ client.connect(6379, '127.0.0.1', () => {
 client.on('data', (data) => {
     console.log('Received: ' + data);
 
-    // Test ECHO command after receiving response for PING
-    if (data.toString().includes('PONG')) {
-        client.write('*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n');
-    } else if (data.toString().includes('hey')) {
-        client.destroy(); // Kill client after receiving ECHO response
-    }
+    // // Test ECHO command after receiving response for PING
+    // if (data.toString().includes('PONG')) {
+    //     client.write('*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n');
+    // } else if (data.toString().includes('hey')) {
+    //     client.destroy(); // Kill client after receiving ECHO response
+    // }
 });
 
 client.on('close', () => {
