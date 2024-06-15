@@ -8,33 +8,39 @@ const server = net.createServer((connection) => {
     connection.on("data", (data) => {
         const commands = Buffer.from(data).toString().split("\r\n");
 
-
-        if (commands[0] === '*5' && commands[2] === 'SET' && commands[6] === 'PX') {
-            const key = commands[4];
-            const value = commands[8];
-            const expiry = parseInt(commands[10]); // Parse the expiry time
-            store.set(key, value);
-            expiries.set(key, Date.now() + expiry); // Set the expiry time
-            setTimeout(() => {
-                store.delete(key); // Remove the key from the store after expiry
-                expiries.delete(key); // Remove the expiry time
-            }, expiry);
-            return connection.write("+OK\r\n");
-        }
-
-        // Check if it's a SET command
-        if (commands[0] === '*3' && commands[2] === 'SET') {
+        if (commands[2] === 'SET' && commands.length >= 5) {
             const key = commands[4];
             const value = commands[6];
-            store.set(key, value);
-            return connection.write("+OK\r\n");
+
+            if (commands.length >= 9 && commands[8] === 'PX') {
+                const expiry = parseInt(commands[10], 10);
+                store.set(key, value);
+                expiries.set(key, Date.now() + expiry);
+
+                setTimeout(() => {
+                    store.delete(key);
+                    expiries.delete(key);
+                }, expiry);
+
+                return connection.write("+OK\r\n");
+            } else {
+                store.set(key, value);
+                return connection.write("+OK\r\n");
+            }
         }
-        // Check if it's a GET command
-        else if (commands[0] === '*2' && commands[2] === 'GET') {
+        else if (commands[2] === 'GET' && commands.length >= 4) {
             const key = commands[4];
+
             if (store.has(key)) {
                 const value = store.get(key);
-                return connection.write(`$${value.length}\r\n${value}\r\n`);
+
+                if (expiries.has(key) && Date.now() > expiries.get(key)) {
+                    store.delete(key);
+                    expiries.delete(key);
+                    return connection.write("$-1\r\n");
+                } else {
+                    return connection.write(`$${value.length}\r\n${value}\r\n`);
+                }
             } else {
                 return connection.write("$-1\r\n");
             }
