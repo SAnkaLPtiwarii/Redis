@@ -8,61 +8,68 @@ const server = net.createServer((connection) => {
     connection.on("data", (data) => {
         const commands = Buffer.from(data).toString().split("\r\n");
 
-        if (commands[2] === 'SET' && commands.length >= 7) {
+        if (commands.length < 2) {
+            return connection.write("Malformed command\r\n");
+        }
+
+        const command = commands[2].toUpperCase(); // ECHO, SET, GET commands are expected in uppercase
+
+        if (command === "ECHO") {
+            if (commands.length < 5) {
+                return connection.write("Malformed command\r\n");
+            }
+            const str = commands[4];
+            const l = str.length;
+            connection.write("$" + l + "\r\n" + str + "\r\n");
+
+        } else if (command === "SET") {
+            if (commands.length < 7) {
+                return connection.write("Malformed command\r\n");
+            }
             const key = commands[4];
             const value = commands[6];
             store.set(key, value);
-            expiries.delete(key); // Remove any existing expiry for this key
 
-            // Handle PX (expiry time in milliseconds) argument
-            if (commands.length >= 9 && commands[8] === 'PX') {
-                const expiry = parseInt(commands[9], 10);
-                const expiryTime = Date.now() + expiry;
-                expiries.set(key, expiryTime);
+            // Check for PX (expiry in milliseconds) argument
+            if (commands.length >= 11 && commands[8].toUpperCase() === "PX") {
+                const expiryTime = parseInt(commands[10], 10);
+                const expiryDate = Date.now() + expiryTime;
+                expiries.set(key, expiryDate);
 
                 setTimeout(() => {
-                    if (Date.now() >= expiryTime) {
-                        store.delete(key);
-                        expiries.delete(key);
-                    }
-                }, expiry);
+                    store.delete(key);
+                    expiries.delete(key);
+                }, expiryTime);
             }
 
-            return connection.write("+OK\r\n");
-        }
+            connection.write("+OK\r\n");
 
-        // Handle GET command
-        else if (commands[2] === 'GET' && commands.length >= 5) {
+        } else if (command === "GET") {
+            if (commands.length < 5) {
+                return connection.write("Malformed command\r\n");
+            }
             const key = commands[4];
-
             if (store.has(key)) {
-                if (expiries.has(key) && Date.now() > expiries.get(key)) {
+                const value = store.get(key);
+
+                // Check if the key has expired
+                if (expiries.has(key) && expiries.get(key) < Date.now()) {
                     store.delete(key);
                     expiries.delete(key);
                     return connection.write("$-1\r\n");
-                } else {
-                    const value = store.get(key);
-                    return connection.write("$-1\r\n");
                 }
+
+                const l = value.length;
+                connection.write("$" + l + "\r\n" + value + "\r\n");
             } else {
-                return connection.write("$-1\r\n");
+                connection.write("$-1\r\n");
             }
-        }
 
+        } else if (command === "PING") {
+            connection.write("+PONG\r\n");
 
-        // Check if it's a PING command
-        else if (commands[0] === '*1' && commands[2] === 'PING') {
-            return connection.write("+PONG\r\n");
-        }
-        // Check if it's an ECHO command
-        else if (commands[0] === '*2' && commands[2] === 'ECHO') {
-            const str = commands[4];
-            const l = str.length;
-            return connection.write(`$${l}\r\n${str}\r\n`);
-        }
-        // If the command is not recognized
-        else {
-            return connection.write("-ERR unknown command\r\n");
+        } else {
+            connection.write("-ERR unknown command\r\n");
         }
     });
 });
