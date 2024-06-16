@@ -74,6 +74,6 @@ const server = net.createServer((connection) => {
     });
 });
 // Start the server on port 6379
-server.listen(6379, "127.0.0.1", () => {
+server.listen(6380, "127.0.0.1", () => {
     console.log("Server started on port 6379");
 });
