@@ -1,5 +1,6 @@
 const net = require("net");
 const { argv } = require("process");
+const replicaIndex = args.indexOf("--replicaof");
 
 console.log("Logs from your program will appear here!");
 const args = process.argv.slice(2);
