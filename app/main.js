@@ -72,9 +72,17 @@ const handleData = (data, connection) => {
         }
     } else if (command === "PING") {
         connection.write("+PONG\r\n");
-    } else {
+    }
+    else if (command === "INFO") {
+        connection.write("$11\r\nrole:master\r\n")
+    }
+    else {
         connection.write("-ERR unknown command\r\n");
     }
+
+
+
+
 };
 
 // Create and start the server
