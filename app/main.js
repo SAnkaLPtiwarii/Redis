@@ -2,16 +2,18 @@ const net = require("net");
 const { argv } = require("process");
 
 console.log("Logs from your program will appear here!");
+
 const args = process.argv.slice(2);
 const portIdx = process.argv.indexOf("--port");
 const replicaIndex = args.indexOf("--replicaof");
+
 const PORT = portIdx === -1 ? 6379 : parseInt(process.argv[portIdx + 1], 10);
 const isReplica = replicaIndex !== -1 && args[replicaIndex + 1] && args[replicaIndex + 2];
 const serverType = isReplica ? "slave" : "master";
 
 // In-memory maps to store key-value pairs and their expiry times
 const store = new Map();
-const expiries = new Map();
+
 
 // Function to handle incoming data
 const handleData = (data, connection) => {
