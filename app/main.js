@@ -35,7 +35,7 @@ const getPortAndReplica = () => {
 };
 
 const { port, replica } = getPortAndReplica();
-const role = replica ? "slave" : "master";
+const role = replica ? "master" : "slave";
 
 
 // Function to handle incoming data
