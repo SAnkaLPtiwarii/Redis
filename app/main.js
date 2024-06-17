@@ -4,7 +4,7 @@ const { argv } = require("process");
 console.log("Logs from your program will appear here!");
 const portIdx = process.argv.indexOf("--port");
 const PORT = portIdx === -1 ? 6379 : parseInt(process.argv[portIdx + 1], 10);
-const serverType = process.argv.indexOf("--replicaof") != -1 ? "slave" : "master";
+const serverType = process.argv.indexOf("--replicaof") = -1 ? "slave" : "master";
 
 // In-memory maps to store key-value pairs and their expiry times
 const store = new Map();
