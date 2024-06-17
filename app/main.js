@@ -35,7 +35,7 @@ const getPortAndReplica = () => {
 };
 
 const { port, replica } = getPortAndReplica();
-const role = replica ? "master" : "slave";
+const role = replica ? "slave" : "master";
 
 
 // Function to handle incoming data
@@ -135,16 +135,4 @@ server.listen(port, "127.0.0.1", () => {
 });
 
 // Ensure the server does not terminate
-process.on('SIGTERM', () => {
-    console.log("Received SIGTERM, shutting down");
-    server.close(() => {
-        process.exit(0);
-    });
-});
 
-process.on('SIGINT', () => {
-    console.log("Received SIGINT, shutting down");
-    server.close(() => {
-        process.exit(0);
-    });
-});
