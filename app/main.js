@@ -3,16 +3,39 @@ const { argv } = require("process");
 
 console.log("Logs from your program will appear here!");
 
-const args = process.argv.slice(2);
-const portIdx = process.argv.indexOf("--port");
-const replicaIndex = args.indexOf("--replicaof");
-
-const PORT = portIdx === -1 ? 6379 : parseInt(process.argv[portIdx + 1], 10);
-const isReplica = replicaIndex !== -1 && args[replicaIndex + 1] && args[replicaIndex + 2];
-const serverType = isReplica ? "slave" : "master";
-
-// In-memory maps to store key-value pairs and their expiry times
+// Store key-value pairs
 const store = new Map();
+// Store key expiry times
+const expiries = new Map();
+
+// Determine port and replica parameters
+const getPortAndReplica = () => {
+    const args = process.argv;
+    const portIndex = args.indexOf("--port");
+    const replicaIndex = args.indexOf("--replicaof");
+
+    let port = 6379;
+    let replica = null;
+
+    if (portIndex !== -1 && args[portIndex + 1]) {
+        const portArg = parseInt(args[portIndex + 1], 10);
+        if (!isNaN(portArg)) {
+            port = portArg;
+        }
+    }
+
+    if (replicaIndex !== -1 && args[replicaIndex + 1] && args[replicaIndex + 2]) {
+        replica = {
+            host: args[replicaIndex + 1],
+            port: parseInt(args[replicaIndex + 2], 10)
+        };
+    }
+
+    return { port, replica };
+};
+
+const { port, replica } = getPortAndReplica();
+const role = replica ? "slave" : "master";
 
 
 // Function to handle incoming data
@@ -107,8 +130,8 @@ const server = net.createServer((connection) => {
     });
 });
 
-server.listen(PORT, "127.0.0.1", () => {
-    console.log(`Redis server is listening on port ${PORT}`);
+server.listen(port, "127.0.0.1", () => {
+    console.log(`Redis server is listening on port ${port}`);
 });
 
 // Ensure the server does not terminate
