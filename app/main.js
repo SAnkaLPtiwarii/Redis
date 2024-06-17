@@ -90,3 +90,17 @@ const server = net.createServer((connection) => {
 server.listen(portnumber, "127.0.0.1", () => {
     console.log(`Server started on port ${portnumber}`);
 });
+
+process.on('SIGTERM', () => {
+    console.log("Received SIGTERM, shutting down");
+    server.close(() => {
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log("Received SIGINT, shutting down");
+    server.close(() => {
+        process.exit(0);
+    });
+});
