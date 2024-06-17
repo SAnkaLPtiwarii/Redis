@@ -1,5 +1,18 @@
 const net = require("net");
 
+const getPortNumber = () => {
+    const args = process.argv;
+    const portIndex = args.indexOf('--port');
+    if (portIndex !== -1 && args[portIndex + 1]) {
+        const port = parseInt(args[portIndex + 1], 10);
+        if (!isNaN(port)) {
+            return port;
+        }
+    }
+    return 6379;
+};
+const portNumber = getPortNumber();
+
 const store = new Map();
 const expiries = new Map();
 
@@ -74,6 +87,6 @@ const server = net.createServer((connection) => {
     });
 });
 // Start the server on port 6379
-server.listen(6380, "127.0.0.1", () => {
-    console.log("Server started on port 6379");
+server.listen(portnumber, "127.0.0.1", () => {
+    console.log(`Server started on port ${portnumber}`);
 });
