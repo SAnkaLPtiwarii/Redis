@@ -1,9 +1,9 @@
 const net = require("net");
 
 console.log("Logs from your program will appear here!");
-
 const portIdx = process.argv.indexOf("--port");
 const PORT = portIdx === -1 ? 6379 : parseInt(process.argv[portIdx + 1], 10);
+const serverType = args.indexOf("--replicaof") != -1 ? "slave" : "master";
 
 // In-memory maps to store key-value pairs and their expiry times
 const store = new Map();
@@ -75,7 +75,10 @@ const handleData = (data, connection) => {
     }
     else if (command === "INFO") {
         connection.write("$11\r\nrole:master\r\n")
+        const serverKeyValuePair = `role:${serverType}`
+        connection.write(`$${serverKeyValuePair.length}\r\n${serverKeyValuePair}\r\n`)
     }
+
     else {
         connection.write("-ERR unknown command\r\n");
     }
@@ -83,7 +86,9 @@ const handleData = (data, connection) => {
 
 
 
+
 };
+
 
 // Create and start the server
 const server = net.createServer((connection) => {
