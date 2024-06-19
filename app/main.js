@@ -66,9 +66,11 @@ const handleData = (data, connection) => {
         if (store.has(key)) {
             const value = store.get(key);
             const l = value.length;
+            console.log(`GET command: found key ${key}, returning value: ${value}`);
             return connection.write(`$${l}\r\n${value}\r\n`);
         } else {
-            return connection.write(`$${-1}\r\n`);
+            console.log(`GET command: key ${key} not found, returning null bulk string`);
+            return connection.write("$-1\r\n");
         }
     } else if (command === "INFO") {
         if (commands[4] === "replication") {
