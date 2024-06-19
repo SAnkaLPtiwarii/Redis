@@ -83,6 +83,8 @@ const handleData = (data, connection) => {
     else if (command === "INFO") {
         connection.write("$11\r\nrole:master\r\n")
         const serverKeyValuePair = `role:${serverType}`
+        const infoResponse = `$${infoLines.join("\r\n").length + 2}\r\n${infoLines.join("\r\n")}\r\n`;
+        return connection.write(infoResponse);
         connection.write(`$${serverKeyValuePair.length}\r\n${serverKeyValuePair}\r\n`)
     }
 
