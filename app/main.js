@@ -15,7 +15,7 @@ const serverType = isReplica ? "slave" : "master";
 
 // In-memory store for key-value pairs and expiry times
 const store = new Map();
-
+const expiries = new Map();
 // Function to handle incoming data
 const handleData = (data, connection) => {
     const commands = Buffer.from(data).toString().split("\r\n");
@@ -83,6 +83,7 @@ const handleData = (data, connection) => {
     else if (command === "INFO") {
         connection.write("$11\r\nrole:master\r\n")
         const serverKeyValuePair = `role:${serverType}`
+        const infoLines = [`role:${serverType}`];
         const infoResponse = `$${infoLines.join("\r\n").length + 2}\r\n${infoLines.join("\r\n")}\r\n`;
         return connection.write(infoResponse);
         connection.write(`$${serverKeyValuePair.length}\r\n${serverKeyValuePair}\r\n`)
