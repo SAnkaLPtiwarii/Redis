@@ -2,11 +2,10 @@ const net = require("net");
 
 // Parse command-line arguments
 const args = process.argv.slice(2);
-const portIndex = args.indexOf("--port");
-const replicaIndex = args.indexOf("--replicaof");
-
-const port = portIndex !== -1 && args[portIndex + 1] ? parseInt(args[portIndex + 1], 10) : 6379;
-const serverType = replicaIndex !== -1 && args[replicaIndex + 1] && args[replicaIndex + 2] ? "slave" : "master";
+const replicaIdx = args.indexOf("--replicaof");
+const replicaDetails = replicaIdx === -1 ? '' : args.slice(replicaIdx + 1).join(' ');
+const [masterHost, masterPort] = replicaDetails ? replicaDetails.split(' ') : [null, null];
+const serverType = masterHost && masterPort ? "slave" : "master";
 
 // In-memory store for key-value pairs and expiry times
 const store = new Map();
