@@ -1,7 +1,7 @@
 const net = require("net");
 
 // Parse command-line arguments
-const getPortNumber = () => {
+const getportNumber = () => {
     const args = process.argv.slice(2);
     const portIdx = args.indexOf("--port");
     if (portIdx !== -1 && args[portIdx + 1]) {
