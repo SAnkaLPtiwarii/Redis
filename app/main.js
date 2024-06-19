@@ -10,8 +10,8 @@ const portIndex = args.indexOf("--port");
 const replicaIndex = args.indexOf("--replicaof");
 
 const port = portIndex !== -1 && args[portIndex + 1] ? parseInt(args[portIndex + 1], 10) : 6379;
-const isReplica = replicaIndex !== -1 && args[replicaIndex + 1] && args[replicaIndex + 2];
-const serverType = isReplica ? "slave" : "master";
+const serverType = replicaIndex !== -1 && args[replicaIndex + 1] && args[replicaIndex + 2] ? "slave" : "master";
+
 
 // In-memory store for key-value pairs and expiry times
 const store = new Map();
