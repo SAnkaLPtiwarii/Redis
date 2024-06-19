@@ -9,7 +9,7 @@ const getportNumber = () => {
     const [masterHost, masterPort] = replicaDetails ? replicaDetails.split(' ') : [null, null];
     const serverType = masterHost && masterPort ? "slave" : "master";
 
-    return 6379
+    return 6380
 }
 
 // In-memory store for key-value pairs and expiry times
