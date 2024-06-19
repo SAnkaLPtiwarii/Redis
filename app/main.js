@@ -1,7 +1,7 @@
 const net = require("net");
 
 // Parse command-line arguments
-const getportNumber = () => {
+const getPortNumber = () => {
     const args = process.argv.slice(2);
     const portIdx = args.indexOf("--port");
     if (portIdx !== -1 && args[portIdx + 1]) {
@@ -13,15 +13,12 @@ const getportNumber = () => {
     return 6379;
 };
 
-
-
-
-
 const args = process.argv.slice(2);
 const replicaIdx = args.indexOf("--replicaof");
 const replicaDetails = replicaIdx === -1 ? '' : args.slice(replicaIdx + 1).join(' ');
 const [masterHost, masterPort] = replicaDetails ? replicaDetails.split(' ') : [null, null];
 const serverType = masterHost && masterPort ? "slave" : "master";
+
 // In-memory store for key-value pairs and expiry times
 const store = new Map();
 const expiries = new Map();
@@ -76,7 +73,7 @@ const handleData = (data, connection) => {
         if (commands[4] === "replication") {
             const infoLines = [`role:${serverType}`];
             const infoString = infoLines.join("\r\n");
-            const infoResponse = `$${infoString.length}\r\n${infoString}\r\n`;
+            const infoResponse = `$${infoString.length + 2}\r\n${infoString}\r\n`;
             return connection.write(infoResponse);
         } else {
             return connection.write("-ERR unknown INFO section\r\n");
@@ -85,7 +82,8 @@ const handleData = (data, connection) => {
         return connection.write("-ERR unknown command\r\n");
     }
 };
-const portNumber = getportNumber()
+
+const portNumber = getPortNumber();
 // Create and start the server
 const server = net.createServer((connection) => {
     connection.on("data", (data) => handleData(data, connection));
@@ -100,4 +98,3 @@ const server = net.createServer((connection) => {
 server.listen(portNumber, "127.0.0.1", () => {
     console.log(`Redis server is listening on port ${portNumber} as ${serverType}`);
 });
-
