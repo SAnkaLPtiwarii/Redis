@@ -80,6 +80,6 @@ const server = net.createServer((connection) => {
     });
 });
 
-server.listen(port, "127.0.0.1", () => {
-    console.log(`Redis server is listening on port ${port} as ${serverType}`);
+server.listen(portNumber, "127.0.0.1", () => {
+    console.log(`Redis server is listening on port ${portNumber} as ${serverType}`);
 });
