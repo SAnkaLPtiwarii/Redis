@@ -1,17 +1,27 @@
 const net = require("net");
 
 // Parse command-line arguments
-const getportNumber = () => {
-
+const getPortNumber = () => {
     const args = process.argv.slice(2);
-    const replicaIdx = args.indexOf("--replicaof");
-    const replicaDetails = replicaIdx === -1 ? '' : args.slice(replicaIdx + 1).join(' ');
-    const [masterHost, masterPort] = replicaDetails ? replicaDetails.split(' ') : [null, null];
-    const serverType = masterHost && masterPort ? "slave" : "master";
-
+    const portIdx = args.indexOf("--port");
+    if (portIdx !== -1 && args[portIdx + 1]) {
+        const port = parseInt(args[portIdx + 1], 10);
+        if (!isNaN(port)) {
+            return port;
+        }
+    }
     return 6379;
 };
 
+
+
+
+
+const args = process.argv.slice(2);
+const replicaIdx = args.indexOf("--replicaof");
+const replicaDetails = replicaIdx === -1 ? '' : args.slice(replicaIdx + 1).join(' ');
+const [masterHost, masterPort] = replicaDetails ? replicaDetails.split(' ') : [null, null];
+const serverType = masterHost && masterPort ? "slave" : "master";
 // In-memory store for key-value pairs and expiry times
 const store = new Map();
 const expiries = new Map();
@@ -88,3 +98,4 @@ const server = net.createServer((connection) => {
 server.listen(portNumber, "127.0.0.1", () => {
     console.log(`Redis server is listening on port ${portNumber} as ${serverType}`);
 });
+
