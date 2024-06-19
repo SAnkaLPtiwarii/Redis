@@ -1,11 +1,16 @@
 const net = require("net");
 
 // Parse command-line arguments
-const args = process.argv.slice(2);
-const replicaIdx = args.indexOf("--replicaof");
-const replicaDetails = replicaIdx === -1 ? '' : args.slice(replicaIdx + 1).join(' ');
-const [masterHost, masterPort] = replicaDetails ? replicaDetails.split(' ') : [null, null];
-const serverType = masterHost && masterPort ? "slave" : "master";
+const getportNumber = () => {
+
+    const args = process.argv.slice(2);
+    const replicaIdx = args.indexOf("--replicaof");
+    const replicaDetails = replicaIdx === -1 ? '' : args.slice(replicaIdx + 1).join(' ');
+    const [masterHost, masterPort] = replicaDetails ? replicaDetails.split(' ') : [null, null];
+    const serverType = masterHost && masterPort ? "slave" : "master";
+
+    return 6379
+}
 
 // In-memory store for key-value pairs and expiry times
 const store = new Map();
@@ -68,7 +73,7 @@ const handleData = (data, connection) => {
         return connection.write("-ERR unknown command\r\n");
     }
 };
-
+const portNumber = getportNumber()
 // Create and start the server
 const server = net.createServer((connection) => {
     connection.on("data", (data) => handleData(data, connection));
