@@ -66,7 +66,7 @@ const handleData = (data, connection) => {
         if (store.has(key)) {
             const value = store.get(key);
             const l = value.length;
-            return connection.write(`${l}\r\n${value}\r\n`);
+            return connection.write(`$${l}\r\n${value}\r\n`);
         } else {
             return connection.write(`$-1\r\n`);
         }
