@@ -73,7 +73,7 @@ const handleData = (data, connection) => {
         if (commands[4] === "replication") {
             const infoLines = [`role:${serverType}`];
             const infoString = infoLines.join("\r\n");
-            const infoResponse = `$${infoString.length + 2}\r\n${infoString}\r\n`;
+            const infoResponse = `$${infoString.length}\r\n${infoString}\r\n`;
             return connection.write(infoResponse);
         } else {
             return connection.write("-ERR unknown INFO section\r\n");
