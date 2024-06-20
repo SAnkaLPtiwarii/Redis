@@ -76,9 +76,10 @@ const handleData = (data, connection) => {
         }
     } else if (command === "INFO") {
         if (commands[4] === "replication") {
-            const infoLines = [`role:${serverType}`];
+            const infoLines = [`role:${ROLE}`];
             const infoString = infoLines.join("\r\n");
             const infoResponse = `$${infoString.length}\r\n${infoString}\r\n`;
+            console.log(`INFO command: returning replication info, response: ${infoResponse}`);
             return connection.write(infoResponse);
         } else {
             return connection.write("-ERR unknown INFO section\r\n");
@@ -87,7 +88,9 @@ const handleData = (data, connection) => {
         return connection.write("-ERR unknown command\r\n");
     }
 };
+
 const portNumber = getPortNumber();
+
 // Create and start the server
 const server = net.createServer((connection) => {
     connection.on("data", (data) => handleData(data, connection));
