@@ -82,7 +82,6 @@ const handleData = (data, connection) => {
         return connection.write("-ERR unknown command\r\n");
     }
 };
-
 const portNumber = getPortNumber();
 // Create and start the server
 const server = net.createServer((connection) => {
