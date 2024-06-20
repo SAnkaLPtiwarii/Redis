@@ -13,11 +13,16 @@ const getPortNumber = () => {
     return 6379;
 };
 
-const args = process.argv.slice(2);
-const replicaIdx = args.indexOf("--replicaof");
-const replicaDetails = replicaIdx === -1 ? '' : args.slice(replicaIdx + 1).join(' ');
-const [masterHost, masterPort] = replicaDetails ? replicaDetails.split(' ') : [null, null];
-const serverType = masterHost && masterPort ? "slave" : "master";
+let REPLICA = null;
+let ROLE = "master";
+if (process.argv.includes("--replicaof")) {
+    const replicaIdx = process.argv.indexOf("--replicaof");
+    const replicaDetails = process.argv[replicaIdx + 1].split(" ");
+    if (replicaDetails.length === 2) {
+        REPLICA = replicaDetails[1];
+        ROLE = "slave";
+    }
+}
 
 // In-memory store for key-value pairs and expiry times
 const store = new Map();
@@ -95,5 +100,5 @@ const server = net.createServer((connection) => {
 });
 
 server.listen(portNumber, "127.0.0.1", () => {
-    console.log(`Redis server is listening on port ${portNumber} as ${serverType}`);
+    console.log(`Redis server is listening on port ${portNumber} as ${ROLE}`);
 });
