@@ -13,16 +13,11 @@ const getPortNumber = () => {
     return 6379;
 };
 
-let REPLICA = null;
-let ROLE = "master";
-if (process.argv.includes("--replicaof")) {
-    const replicaIdx = process.argv.indexOf("--replicaof");
-    const replicaDetails = process.argv[replicaIdx + 1].split(" ");
-    if (replicaDetails.length === 2) {
-        REPLICA = replicaDetails[1];
-        ROLE = "slave";
-    }
-}
+const args = process.argv.slice(2);
+const replicaIdx = args.indexOf("--replicaof");
+const replicaDetails = replicaIdx === -1 ? '' : args.slice(replicaIdx + 1).join(' ');
+const [masterHost, masterPort] = replicaDetails ? replicaDetails.split(' ') : [null, null];
+const serverType = masterHost && masterPort ? "slave" : "master";
 
 // In-memory store for key-value pairs and expiry times
 const store = new Map();
@@ -75,11 +70,15 @@ const handleData = (data, connection) => {
             return connection.write("$-1\r\n");
         }
     } else if (command === "INFO") {
-        if (commands[4] === "replication") {
-            const infoLines = [`role:${ROLE}`];
+        if (commands[4] && commands[4].toLowerCase() === "replication") {
+            const infoLines = [];
+            if (masterPort && masterPort !== getPortNumber()) {
+                infoLines.push("role:slave");
+            } else {
+                infoLines.push("role:master");
+            }
             const infoString = infoLines.join("\r\n");
-            const infoResponse = `$${infoString.length}\r\n${infoString}\r\n`;
-            console.log(`INFO command: returning replication info, response: ${infoResponse}`);
+            const infoResponse = `$${infoString.length + 2}\r\n${infoString}\r\n`;
             return connection.write(infoResponse);
         } else {
             return connection.write("-ERR unknown INFO section\r\n");
@@ -87,6 +86,7 @@ const handleData = (data, connection) => {
     } else {
         return connection.write("-ERR unknown command\r\n");
     }
+
 };
 
 const portNumber = getPortNumber();
