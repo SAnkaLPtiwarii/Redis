@@ -6,15 +6,8 @@ const serverType = args.indexOf("--replicaof") != -1 ? "slave" : "master";
 const serverPort = portIndex != -1 ? args[portIndex + 1] : 6379;
 
 const server = net.createServer((connection) => {
-    // Store both values and expiry times
-    const store = new Map();
-    const expiry = new Map();
-
-    // Helper function to check if a key is expired
-    const isExpired = (key) => {
-        if (!expiry.has(key)) return false;
-        return Date.now() > expiry.get(key);
-    };
+    const keyValuePairs = {};
+    const expiries = {};
 
     connection.on('data', (data) => {
         const input = Buffer.from(data).toString().split("\r\n");
@@ -31,29 +24,29 @@ const server = net.createServer((connection) => {
             const key = input[4];
             const value = input[6];
 
-            store.set(key, value);
+            keyValuePairs[key] = value;
 
             const pxIndex = input.indexOf("PX");
             if (pxIndex !== -1 && input[pxIndex + 1]) {
-                const milliseconds = parseInt(input[pxIndex + 1]);
-                expiry.set(key, Date.now() + milliseconds);
+                const ttl = parseInt(input[pxIndex + 1]);
+                expiries[key] = Date.now() + ttl;
             }
-
             connection.write("+OK\r\n");
 
         } else if (input.includes("GET")) {
             const key = input[4];
+            const expiry = expiries[key];
 
-            // Check if key exists and is not expired
-            if (store.has(key)) {
-                if (isExpired(key)) {
-                    store.delete(key);
-                    expiry.delete(key);
-                    connection.write("$-1\r\n");
-                } else {
-                    const value = store.get(key);
-                    connection.write(`$${value.length}\r\n${value}\r\n`);
-                }
+            // If key has an expiry and it's passed, delete it
+            if (expiry && Date.now() >= expiry) {
+                delete keyValuePairs[key];
+                delete expiries[key];
+            }
+
+            // Now check if key exists (after potential deletion)
+            if (key in keyValuePairs) {
+                const value = keyValuePairs[key];
+                connection.write(`$${value.length}\r\n${value}\r\n`);
             } else {
                 connection.write("$-1\r\n");
             }
@@ -62,20 +55,6 @@ const server = net.createServer((connection) => {
             const serverKeyValuePair = `role:${serverType}`;
             connection.write(`$${serverKeyValuePair.length}\r\n${serverKeyValuePair}\r\n`);
         }
-    });
-
-    // Cleanup expired keys periodically
-    const cleanup = setInterval(() => {
-        for (const [key, expiryTime] of expiry) {
-            if (Date.now() > expiryTime) {
-                store.delete(key);
-                expiry.delete(key);
-            }
-        }
-    }, 1); // Run very frequently to ensure precise timing
-
-    connection.on('end', () => {
-        clearInterval(cleanup);
     });
 });
 
