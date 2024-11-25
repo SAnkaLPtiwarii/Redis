@@ -27,36 +27,27 @@ function handleCommand(input) {
             const message = input[4];
             return `$${message.length}\r\n${message}\r\n`;
 
-        case "INFO":
-            if (input[4]?.toLowerCase() === "replication") {
-                const infoLines = [
-                    `role:${serverType}`,
-                    `master_replid:${REPLICATION_ID}`,
-                    `master_repl_offset:${REPLICATION_OFFSET}`
-                ];
-                const infoString = infoLines.join("\r\n");
-                return `$${infoString.length}\r\n${infoString}\r\n`;
-            }
-            return "-ERR unknown INFO section\r\n";
-
         case "SET": {
             const key = input[4];
             const value = input[6];
             const pxIndex = input.indexOf("PX");
 
+            keyValues[key] = value;
+
             if (pxIndex !== -1) {
                 const expiry = parseInt(input[pxIndex + 1]);
-                const expiryTime = Date.now() + expiry;
-                keyExpiries[key] = expiryTime;
+                keyExpiries[key] = Date.now() + expiry;
+            } else {
+                delete keyExpiries[key];
             }
-
-            keyValues[key] = value;
             return "+OK\r\n";
         }
 
         case "GET": {
             const key = input[4];
-            if (key in keyExpiries && Date.now() > keyExpiries[key]) {
+            const now = Date.now();
+
+            if (keyExpiries[key] !== undefined && now >= keyExpiries[key]) {
                 delete keyValues[key];
                 delete keyExpiries[key];
                 return "$-1\r\n";
@@ -67,6 +58,19 @@ function handleCommand(input) {
                 return "$-1\r\n";
             }
             return `$${value.length}\r\n${value}\r\n`;
+        }
+
+        case "INFO": {
+            if (input[4]?.toLowerCase() === "replication") {
+                const infoLines = [
+                    `role:${serverType}`,
+                    `master_replid:${REPLICATION_ID}`,
+                    `master_repl_offset:${REPLICATION_OFFSET}`
+                ];
+                const infoString = infoLines.join("\r\n");
+                return `$${infoString.length}\r\n${infoString}\r\n`;
+            }
+            return "-ERR unknown INFO section\r\n";
         }
 
         default:
@@ -87,53 +91,49 @@ const server = net.createServer((connection) => {
     });
 });
 
+// Connect to master if in replica mode
+if (serverType === "slave" && args[replicaIndex + 1]) {
+    const [masterHost, masterPort] = args[replicaIndex + 1].split(" ");
+    const masterConnection = new net.Socket();
+
+    masterConnection.connect(parseInt(masterPort), masterHost, () => {
+        console.log(`Connected to master at ${masterHost}:${masterPort}`);
+        masterConnection.write("*1\r\n$4\r\nPING\r\n");
+    });
+
+    let handshakeState = 0;
+    masterConnection.on('data', (data) => {
+        const response = data.toString();
+
+        switch (handshakeState) {
+            case 0:
+                if (response === "+PONG\r\n") {
+                    const replconfPort = `*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$${serverPort.toString().length}\r\n${serverPort}\r\n`;
+                    masterConnection.write(replconfPort);
+                    handshakeState = 1;
+                }
+                break;
+            case 1:
+                if (response === "+OK\r\n") {
+                    const replconfCapa = "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n";
+                    masterConnection.write(replconfCapa);
+                    handshakeState = 2;
+                }
+                break;
+            case 2:
+                if (response === "+OK\r\n") {
+                    masterConnection.write("*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
+                    handshakeState = 3;
+                }
+                break;
+        }
+    });
+
+    masterConnection.on('error', (err) => {
+        console.error(`Error connecting to master: ${err}`);
+    });
+}
+
 server.listen(serverPort, '127.0.0.1', () => {
     console.log(`Server is listening on port ${serverPort} as ${serverType}`);
-
-    // If we're a replica, connect to master
-    if (serverType === "slave" && args[replicaIndex + 1]) {
-        const [masterHost, masterPort] = args[replicaIndex + 1].split(" ");
-        const masterConnection = new net.Socket();
-
-        masterConnection.connect(parseInt(masterPort), masterHost, () => {
-            console.log(`Connected to master at ${masterHost}:${masterPort}`);
-
-            // Send PING
-            masterConnection.write("*1\r\n$4\r\nPING\r\n");
-        });
-
-        let handshakeState = 0;
-        masterConnection.on('data', (data) => {
-            const response = data.toString();
-
-            switch (handshakeState) {
-                case 0:
-                    if (response === "+PONG\r\n") {
-                        const replconfPort = `*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$${serverPort.toString().length}\r\n${serverPort}\r\n`;
-                        masterConnection.write(replconfPort);
-                        handshakeState = 1;
-                    }
-                    break;
-
-                case 1:
-                    if (response === "+OK\r\n") {
-                        const replconfCapa = "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n";
-                        masterConnection.write(replconfCapa);
-                        handshakeState = 2;
-                    }
-                    break;
-
-                case 2:
-                    if (response === "+OK\r\n") {
-                        masterConnection.write("*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
-                        handshakeState = 3;
-                    }
-                    break;
-            }
-        });
-
-        masterConnection.on('error', (err) => {
-            console.error(`Error connecting to master: ${err}`);
-        });
-    }
 });
