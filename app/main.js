@@ -2,12 +2,20 @@ const net = require("net");
 
 const args = process.argv.slice(2);
 const portIndex = args.indexOf("--port");
-const serverType = args.indexOf("--replicaof") != -1 ? "slave" : "master";
+const replicaIndex = args.indexOf("--replicaof");
+const serverType = replicaIndex != -1 ? "slave" : "master";
 const serverPort = portIndex != -1 ? args[portIndex + 1] : 6379;
 
 // Constants for replication
 const REPLICATION_ID = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
 const REPLICATION_OFFSET = 0;
+
+// Parse master details if in replica mode
+let masterHost, masterPort;
+if (serverType === "slave" && args[replicaIndex + 1]) {
+    [masterHost, masterPort] = args[replicaIndex + 1].split(" ");
+    masterPort = parseInt(masterPort);
+}
 
 const server = net.createServer((connection) => {
     const keyValuePairs = {};
@@ -33,13 +41,11 @@ const server = net.createServer((connection) => {
         } else if (input.includes("GET")) {
             const key = input[streamLength - 2];
 
-            // Check if key exists
             if (!(key in keyValuePairs)) {
                 connection.write("$-1\r\n");
                 return;
             }
 
-            // Check expiry
             if (key in expValuePairs) {
                 if (Date.now() > expValuePairs[key]) {
                     delete keyValuePairs[key];
@@ -67,6 +73,32 @@ const server = net.createServer((connection) => {
     });
 });
 
+// Function to connect to master if we're a replica
+function connectToMaster() {
+    if (serverType === "slave" && masterHost && masterPort) {
+        const masterConnection = new net.Socket();
+
+        masterConnection.connect(masterPort, masterHost, () => {
+            console.log(`Connected to master at ${masterHost}:${masterPort}`);
+
+            // Send PING as first part of handshake
+            masterConnection.write("*1\r\n$4\r\nPING\r\n");
+        });
+
+        masterConnection.on('data', (data) => {
+            // Handle master's response
+            const response = data.toString();
+            console.log(`Received from master: ${response}`);
+        });
+
+        masterConnection.on('error', (err) => {
+            console.error(`Error connecting to master: ${err}`);
+        });
+    }
+}
+
 server.listen(serverPort, '127.0.0.1', () => {
     console.log(`Server is listening on port ${serverPort} as ${serverType}`);
+    // Connect to master after server is listening
+    connectToMaster();
 });
