@@ -29,6 +29,9 @@ const server = net.createServer((connection) => {
             connection.write("+PONG\r\n");
         } else if (input.includes("REPLCONF")) {
             connection.write("+OK\r\n");
+        } else if (input.includes("PSYNC")) {
+            const response = `+FULLRESYNC ${REPLICATION_ID} 0\r\n`;
+            connection.write(response);
         } else if (input.includes("ECHO")) {
             connection.write(`${input[3]}\r\n${input[4]}\r\n`);
         } else if (input.includes("SET")) {
@@ -75,28 +78,45 @@ const server = net.createServer((connection) => {
     });
 });
 
-// Function to handle the handshake process
+// Function to handle the complete handshake process
 function handleHandshake(masterConnection) {
     let handshakeState = 0;  // Track handshake progress
 
     masterConnection.on('data', (data) => {
         const response = data.toString();
 
-        if (response === "+PONG\r\n" && handshakeState === 0) {
-            // After PING response, send first REPLCONF
-            const replconfPort = `*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$${serverPort.toString().length}\r\n${serverPort}\r\n`;
-            masterConnection.write(replconfPort);
-            handshakeState = 1;
-        }
-        else if (response === "+OK\r\n" && handshakeState === 1) {
-            // After first REPLCONF response, send second REPLCONF
-            const replconfCapa = "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n";
-            masterConnection.write(replconfCapa);
-            handshakeState = 2;
-        }
-        else if (response === "+OK\r\n" && handshakeState === 2) {
-            // Ready for next stage (PSYNC)
-            console.log("Handshake completed successfully");
+        switch (handshakeState) {
+            case 0:
+                if (response === "+PONG\r\n") {
+                    // After PING response, send first REPLCONF
+                    const replconfPort = `*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$${serverPort.toString().length}\r\n${serverPort}\r\n`;
+                    masterConnection.write(replconfPort);
+                    handshakeState = 1;
+                }
+                break;
+
+            case 1:
+                if (response === "+OK\r\n") {
+                    // After first REPLCONF response, send second REPLCONF
+                    masterConnection.write("*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
+                    handshakeState = 2;
+                }
+                break;
+
+            case 2:
+                if (response === "+OK\r\n") {
+                    // After second REPLCONF response, send PSYNC
+                    masterConnection.write("*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
+                    handshakeState = 3;
+                }
+                break;
+
+            case 3:
+                if (response.startsWith("+FULLRESYNC")) {
+                    console.log("Handshake completed successfully");
+                    handshakeState = 4;
+                }
+                break;
         }
     });
 }
