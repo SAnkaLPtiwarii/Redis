@@ -9,98 +9,50 @@ const server = net.createServer((connection) => {
     const keyValuePairs = {};
     const keyExpiries = {};
 
-    const checkExpiry = (key) => {
-        if (key in keyExpiries && Date.now() >= keyExpiries[key]) {
-            delete keyValuePairs[key];
-            delete keyExpiries[key];
-            return true;
-        }
-        return false;
-    };
-
     connection.on('data', (data) => {
         const input = Buffer.from(data).toString().split("\r\n");
-        const command = input[2]?.toUpperCase();
+        let command = input[2]?.toUpperCase();
 
-        if (!command) {
-            return connection.write("-ERR Malformed command\r\n");
-        }
-
-        switch (command) {
-            case "PING":
-                connection.write("+PONG\r\n");
-                break;
-
-            case "ECHO":
-                if (input.length < 5) {
-                    connection.write("-ERR Wrong number of arguments\r\n");
-                    break;
-                }
-                const message = input[4];
+        if (input.includes("PING")) {
+            connection.write("+PONG\r\n");
+        } else if (input.includes("ECHO")) {
+            const messageIndex = input.indexOf("ECHO") + 2;
+            if (messageIndex < input.length) {
+                const message = input[messageIndex];
                 connection.write(`$${message.length}\r\n${message}\r\n`);
-                break;
+            }
+        } else if (input.includes("SET")) {
+            const key = input[4];
+            const value = input[6];
+            keyValuePairs[key] = value;
 
-            case "SET":
-                if (input.length < 7) {
-                    connection.write("-ERR Wrong number of arguments\r\n");
-                    break;
+            const pxIndex = input.indexOf("PX");
+            if (pxIndex !== -1 && input[pxIndex + 1]) {
+                const expiryTime = parseInt(input[pxIndex + 1]);
+                if (!isNaN(expiryTime)) {
+                    setTimeout(() => {
+                        if (keyValuePairs[key] !== undefined) {
+                            delete keyValuePairs[key];
+                        }
+                    }, expiryTime);
                 }
-                const setKey = input[4];
-                const setValue = input[6];
-                const pxIndex = input.indexOf("PX");
+            }
+            connection.write("+OK\r\n");
 
-                keyValuePairs[setKey] = setValue;
+        } else if (input.includes("GET")) {
+            const key = input[4];
+            const value = keyValuePairs[key];
 
-                if (pxIndex !== -1 && input[pxIndex + 1]) {
-                    const expiry = parseInt(input[pxIndex + 1], 10);
-                    if (!isNaN(expiry)) {
-                        keyExpiries[setKey] = Date.now() + expiry;
-                    }
-                } else {
-                    delete keyExpiries[setKey];
-                }
+            if (value === undefined) {
+                connection.write("$-1\r\n");  // Null bulk string
+            } else {
+                connection.write(`$${value.length}\r\n${value}\r\n`);
+            }
 
-                connection.write("+OK\r\n");
-                break;
-
-            case "GET":
-                if (input.length < 5) {
-                    connection.write("-ERR Wrong number of arguments\r\n");
-                    break;
-                }
-                const getKey = input[4];
-
-                if (checkExpiry(getKey) || !(getKey in keyValuePairs)) {
-                    connection.write("$-1\r\n");
-                } else {
-                    const value = keyValuePairs[getKey];
-                    connection.write(`$${value.length}\r\n${value}\r\n`);
-                }
-                break;
-
-            case "INFO":
-                if (input[4] && input[4].toLowerCase() === "replication") {
-                    const serverKeyValuePair = `role:${serverType}`;
-                    connection.write(`$${serverKeyValuePair.length}\r\n${serverKeyValuePair}\r\n`);
-                } else {
-                    connection.write("-ERR unknown INFO section\r\n");
-                }
-                break;
-
-            default:
-                connection.write("-ERR Unknown command\r\n");
+        } else if (input.includes("INFO")) {
+            const serverKeyValuePair = `role:${serverType}`;
+            connection.write(`$${serverKeyValuePair.length}\r\n${serverKeyValuePair}\r\n`);
         }
-    });
-
-    // Periodic cleanup of expired keys
-    const cleanup = setInterval(() => {
-        for (const key in keyExpiries) {
-            checkExpiry(key);
-        }
-    }, 50);
-
-    connection.on('end', () => {
-        clearInterval(cleanup);
     });
 });
 
