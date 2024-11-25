@@ -19,9 +19,19 @@ const replicaDetails = replicaIdx === -1 ? '' : args.slice(replicaIdx + 1).join(
 const [masterHost, masterPort] = replicaDetails ? replicaDetails.split(' ') : [null, null];
 const serverType = masterHost && masterPort ? "slave" : "master";
 
-// In-memory store for key-value pairs and expiry times
+// In-memory store for key-value pairs and expiry timestamps
 const store = new Map();
-const expiries = new Map();
+const expiryTimes = new Map();
+
+const isExpired = (key) => {
+    if (!expiryTimes.has(key)) return false;
+    return Date.now() > expiryTimes.get(key);
+};
+
+const cleanupExpiredKey = (key) => {
+    store.delete(key);
+    expiryTimes.delete(key);
+};
 
 // Function to handle incoming data
 const handleData = (data, connection) => {
@@ -46,33 +56,39 @@ const handleData = (data, connection) => {
         const key = commands[4];
         const value = commands[6];
 
-        // Clear any existing expiry timeout for this key
-        if (expiries.has(key)) {
-            clearTimeout(expiries.get(key));
-            expiries.delete(key);
-        }
-
         store.set(key, value);
 
+        // Handle PX argument for expiry
         const pxIndex = commands.indexOf("PX");
         if (pxIndex !== -1 && commands[pxIndex + 1]) {
-            const expiry = parseInt(commands[pxIndex + 1], 10);
-            const timeout = setTimeout(() => {
-                store.delete(key);
-                expiries.delete(key);
-            }, expiry);
-            expiries.set(key, timeout);
+            const milliseconds = parseInt(commands[pxIndex + 1], 10);
+            const expiryTime = Date.now() + milliseconds;
+            expiryTimes.set(key, expiryTime);
+
+            // Schedule cleanup
+            setTimeout(() => {
+                cleanupExpiredKey(key);
+            }, milliseconds);
+        } else {
+            // If no expiry is set, remove any existing expiry
+            expiryTimes.delete(key);
         }
+
         return connection.write("+OK\r\n");
     } else if (command === "GET") {
         if (commands.length < 5) {
             return connection.write("-ERR Malformed command\r\n");
         }
         const key = commands[4];
+
+        // Check if key exists and hasn't expired
         if (store.has(key)) {
+            if (isExpired(key)) {
+                cleanupExpiredKey(key);
+                return connection.write("$-1\r\n");
+            }
             const value = store.get(key);
-            const l = value.length;
-            return connection.write(`$${l}\r\n${value}\r\n`);
+            return connection.write(`$${value.length}\r\n${value}\r\n`);
         } else {
             return connection.write("$-1\r\n");
         }
