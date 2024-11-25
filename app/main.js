@@ -78,7 +78,7 @@ const handleData = (data, connection) => {
                 infoLines.push("role:master");
             }
             const infoString = infoLines.join("\r\n");
-            const infoResponse = `$${infoString.length + 2}\r\n${infoString}\r\n`;
+            const infoResponse = `$${infoString.length}\r\n${infoString}\r\n`;
             return connection.write(infoResponse);
         } else {
             return connection.write("-ERR unknown INFO section\r\n");
@@ -86,7 +86,6 @@ const handleData = (data, connection) => {
     } else {
         return connection.write("-ERR unknown command\r\n");
     }
-
 };
 
 const portNumber = getPortNumber();
