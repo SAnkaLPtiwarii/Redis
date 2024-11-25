@@ -45,12 +45,21 @@ const handleData = (data, connection) => {
         }
         const key = commands[4];
         const value = commands[6];
+
+        // Clear any existing expiry timeout for this key
+        if (expiries.has(key)) {
+            clearTimeout(expiries.get(key));
+            expiries.delete(key);
+        }
+
         store.set(key, value);
+
         const pxIndex = commands.indexOf("PX");
         if (pxIndex !== -1 && commands[pxIndex + 1]) {
             const expiry = parseInt(commands[pxIndex + 1], 10);
             const timeout = setTimeout(() => {
                 store.delete(key);
+                expiries.delete(key);
             }, expiry);
             expiries.set(key, timeout);
         }
@@ -63,10 +72,8 @@ const handleData = (data, connection) => {
         if (store.has(key)) {
             const value = store.get(key);
             const l = value.length;
-            console.log(`GET command: found key ${key}, returning value: ${value}`);
             return connection.write(`$${l}\r\n${value}\r\n`);
         } else {
-            console.log(`GET command: key ${key} not found, returning null bulk string`);
             return connection.write("$-1\r\n");
         }
     } else if (command === "INFO") {
