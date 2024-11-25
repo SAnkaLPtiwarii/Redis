@@ -1,110 +1,87 @@
 const net = require("net");
 
-// Parse command-line arguments
-const getPortNumber = () => {
-    const args = process.argv.slice(2);
-    const portIdx = args.indexOf("--port");
-    if (portIdx !== -1 && args[portIdx + 1]) {
-        const port = parseInt(args[portIdx + 1], 10);
-        if (!isNaN(port)) {
-            return port;
-        }
-    }
-    return 6379;
-};
-
 const args = process.argv.slice(2);
-const replicaIdx = args.indexOf("--replicaof");
-const replicaDetails = replicaIdx === -1 ? '' : args.slice(replicaIdx + 1).join(' ');
-const [masterHost, masterPort] = replicaDetails ? replicaDetails.split(' ') : [null, null];
-const serverType = masterHost && masterPort ? "slave" : "master";
+const portIndex = args.indexOf("--port");
+const serverType = args.indexOf("--replicaof") != -1 ? "slave" : "master";
+const serverPort = portIndex != -1 ? args[portIndex + 1] : 6379;
 
-// In-memory store for key-value pairs
-const store = new Map();
-
-// Function to remove a key after specified milliseconds
-const setKeyExpiry = (key, milliseconds) => {
-    return setTimeout(() => {
-        store.delete(key);
-    }, milliseconds);
-};
-
-// Function to handle incoming data
-const handleData = (data, connection) => {
-    const commands = Buffer.from(data).toString().split("\r\n");
-    const command = commands[2]?.toUpperCase();
-
-    if (!command) {
-        return connection.write("-ERR Malformed command\r\n");
-    }
-
-    if (command === "ECHO") {
-        if (commands.length < 5) {
-            return connection.write("-ERR Malformed command\r\n");
-        }
-        const str = commands[4];
-        const l = str.length;
-        return connection.write(`$${l}\r\n${str}\r\n`);
-    } else if (command === "SET") {
-        if (commands.length < 7) {
-            return connection.write("-ERR Malformed command\r\n");
-        }
-        const key = commands[4];
-        const value = commands[6];
-        store.set(key, value);
-
-        const pxIndex = commands.indexOf("PX");
-        if (pxIndex !== -1 && commands[pxIndex + 1]) {
-            const expiry = parseInt(commands[pxIndex + 1], 10);
-            if (!isNaN(expiry)) {
-                setKeyExpiry(key, expiry);
-            }
-        }
-        return connection.write("+OK\r\n");
-    } else if (command === "GET") {
-        if (commands.length < 5) {
-            return connection.write("-ERR Malformed command\r\n");
-        }
-        const key = commands[4];
-        const value = store.get(key);
-
-        if (value === undefined) {
-            return connection.write("$-1\r\n");
-        } else {
-            return connection.write(`$${value.length}\r\n${value}\r\n`);
-        }
-    } else if (command === "INFO") {
-        if (commands[4] && commands[4].toLowerCase() === "replication") {
-            const infoLines = [];
-            if (masterPort && masterPort !== getPortNumber()) {
-                infoLines.push("role:slave");
-            } else {
-                infoLines.push("role:master");
-            }
-            const infoString = infoLines.join("\r\n");
-            const infoResponse = `$${infoString.length}\r\n${infoString}\r\n`;
-            return connection.write(infoResponse);
-        } else {
-            return connection.write("-ERR unknown INFO section\r\n");
-        }
-    } else {
-        return connection.write("-ERR unknown command\r\n");
-    }
-};
-
-const portNumber = getPortNumber();
-
-// Create and start the server
 const server = net.createServer((connection) => {
-    connection.on("data", (data) => handleData(data, connection));
-    connection.on("end", () => {
-        console.log("Client disconnected");
+    const keyValuePairs = {};
+    const expiryTimes = {};
+
+    function isExpired(key) {
+        return expiryTimes[key] && Date.now() > expiryTimes[key];
+    }
+
+    function deleteKey(key) {
+        delete keyValuePairs[key];
+        delete expiryTimes[key];
+    }
+
+    connection.on('data', (data) => {
+        const input = Buffer.from(data).toString().split("\r\n");
+        let streamLength = input.length;
+
+        if (input.includes("PING")) {
+            connection.write("+PONG\r\n");
+        } else if (input.includes("ECHO")) {
+            const messageIndex = input.indexOf("ECHO") + 2;
+            if (messageIndex < input.length) {
+                const message = input[messageIndex];
+                connection.write(`$${message.length}\r\n${message}\r\n`);
+            }
+        } else if (input.includes("SET")) {
+            const key = input[4];
+            const value = input[6];
+
+            const pxIndex = input.indexOf("PX");
+            if (pxIndex !== -1 && input[pxIndex + 1]) {
+                const expiry = parseInt(input[pxIndex + 1]);
+                const expiryTime = Date.now() + expiry;
+                expiryTimes[key] = expiryTime;
+            } else {
+                delete expiryTimes[key];  // Remove any existing expiry
+            }
+
+            keyValuePairs[key] = value;
+            connection.write("+OK\r\n");
+
+        } else if (input.includes("GET")) {
+            const key = input[4];
+
+            // Check if the key exists and hasn't expired
+            if (key in keyValuePairs) {
+                if (isExpired(key)) {
+                    deleteKey(key);
+                    connection.write("$-1\r\n");
+                } else {
+                    const value = keyValuePairs[key];
+                    connection.write(`$${value.length}\r\n${value}\r\n`);
+                }
+            } else {
+                connection.write("$-1\r\n");
+            }
+
+        } else if (input.includes("INFO")) {
+            const serverKeyValuePair = `role:${serverType}`;
+            connection.write(`$${serverKeyValuePair.length}\r\n${serverKeyValuePair}\r\n`);
+        }
     });
-    connection.on("error", (err) => {
-        console.error("Connection error: ", err);
+
+    // Cleanup expired keys periodically
+    const cleanupInterval = setInterval(() => {
+        for (const key in expiryTimes) {
+            if (isExpired(key)) {
+                deleteKey(key);
+            }
+        }
+    }, 100); // Run cleanup every 100ms
+
+    connection.on('end', () => {
+        clearInterval(cleanupInterval);
     });
 });
 
-server.listen(portNumber, "127.0.0.1", () => {
-    console.log(`Redis server is listening on port ${portNumber} as ${serverType}`);
+server.listen(serverPort, '127.0.0.1', () => {
+    console.log(`Server is listening on port ${serverPort} as ${serverType}`);
 });
